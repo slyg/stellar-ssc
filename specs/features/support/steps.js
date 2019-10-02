@@ -19,25 +19,27 @@ const {
 } = require("./lib");
 const { alice, charlie, maria } = require("../../../accounts.json");
 
-Given(/^Charlie and Alice have a balance$/, { timeout: 20000 }, async () => {
-  this.charlieInitialBalance = await getBalanceOf(charlie);
-  this.aliceInitialBalance = await getBalanceOf(alice);
-  expect(new BigNumber(this.charlieInitialBalance).isGreaterThan(500));
-  expect(new BigNumber(this.aliceInitialBalance).isGreaterThan(500));
-});
+Given(
+  /^Charlie and Alice have a balance$/,
+  { timeout: 20000 },
+  async function() {
+    this.charlieInitialBalance = await getBalanceOf(charlie);
+    this.aliceInitialBalance = await getBalanceOf(alice);
+    expect(new BigNumber(this.charlieInitialBalance).isGreaterThan(500));
+    expect(new BigNumber(this.aliceInitialBalance).isGreaterThan(500));
+  }
+);
 
-When(/^Charlie creates the contract$/, { timeout: 40000 }, async () => {
+When(/^Charlie creates the contract$/, { timeout: 40000 }, async function() {
   await exec("node ./setup/1_createEscrow.js");
   const escrow = await loadJSON("./escrow.json");
+  this.setEscrowKeypair(escrow);
 
   await exec("node ./setup/2_createTx.js");
   const txXDR = await loadJSON("./txXDR.json");
   const tx = loadTx(txXDR);
-  this.proceedTx = tx.proceedTx;
-  this.lockTx = tx.lockTx;
-  this.disputeTx = tx.disputeTx;
-  this.proceedAfterDisputeTx = tx.proceedAfterDisputeTx;
-  this.recoverAfterDisputeTx = tx.recoverAfterDisputeTx;
+
+  this.setTransactions(tx);
 
   this.lockTx.sign(Keypair.fromSecret(escrow.secret));
   try {
@@ -51,19 +53,19 @@ When(/^Charlie creates the contract$/, { timeout: 40000 }, async () => {
 When(
   /^Alice funds the escrow account with (.*) XLM$/,
   { timeout: 20000 },
-  async amount => {
+  async function(amount) {
     await aliceFundsEscrow(amount);
   }
 );
 
-When(/^I wait for (.*) seconds$/, { timeout: 60000 }, async seconds => {
+When(/^I wait for (.*) seconds$/, { timeout: 60000 }, async function(seconds) {
   await sleep((Number(seconds) + 1) * 1000);
 });
 
 When(
   /^Alice signs and submits the "proceed" transaction$/,
   { timeout: 20000 },
-  async () => {
+  async function() {
     this.proceedTx.sign(Keypair.fromSecret(alice.secret));
     try {
       await server.submitTransaction(this.proceedTx);
@@ -76,7 +78,7 @@ When(
 When(
   /^Charlie signs and submits the "proceed" transaction$/,
   { timeout: 20000 },
-  async () => {
+  async function() {
     this.proceedTx.sign(Keypair.fromSecret(charlie.secret));
     try {
       await server.submitTransaction(this.proceedTx);
@@ -88,7 +90,7 @@ When(
   }
 );
 
-When(/^Alice raises a dispute$/, { timeout: 20000 }, async () => {
+When(/^Alice raises a dispute$/, { timeout: 20000 }, async function() {
   this.disputeTx.sign(Keypair.fromSecret(alice.secret));
   try {
     await server.submitTransaction(this.disputeTx);
@@ -102,7 +104,7 @@ When(/^Alice raises a dispute$/, { timeout: 20000 }, async () => {
 When(
   /^Alice signs and submits a "withdrawal" transaction$/,
   { timeout: 20000 },
-  async () => {
+  async function() {
     const escrowAccount = await server.loadAccount(this.escrow.publicKey);
 
     const txOptions = {
@@ -130,9 +132,8 @@ When(
 When(
   /^Charlie signs and submits a "withdrawal" transaction with the escrow key$/,
   { timeout: 20000 },
-  async () => {
-    const escrow = await loadJSON("./escrow.json");
-    const escrowAccount = await server.loadAccount(escrow.publicKey);
+  async function() {
+    const escrowAccount = await server.loadAccount(this.escrow.publicKey);
 
     const txOptions = {
       fee: await server.fetchBaseFee(),
@@ -144,7 +145,7 @@ When(
       .setTimeout(0)
       .build();
 
-    tx.sign(Keypair.fromSecret(escrow.secret));
+    tx.sign(Keypair.fromSecret(this.escrow.secret));
 
     try {
       await server.submitTransaction(tx);
@@ -159,7 +160,7 @@ When(
 When(
   /^Maria signs and submits the "proceed after dispute" transaction$/,
   { timeout: 20000 },
-  async () => {
+  async function() {
     this.proceedAfterDisputeTx.sign(Keypair.fromSecret(maria.secret));
     try {
       await server.submitTransaction(this.proceedAfterDisputeTx);
@@ -174,7 +175,7 @@ When(
 When(
   /^Maria signs and submits the "recover after dispute" transaction$/,
   { timeout: 20000 },
-  async () => {
+  async function() {
     this.recoverAfterDisputeTx.sign(Keypair.fromSecret(maria.secret));
     try {
       await server.submitTransaction(this.recoverAfterDisputeTx);
@@ -189,7 +190,7 @@ When(
 Then(
   /^Charlie should have received a payment of (.*) XLM$/,
   { timeout: 20000 },
-  async amount => {
+  async function(amount) {
     const balanceOfCharlieAfter = await getBalanceOf(charlie);
     expect(
       new BigNumber(balanceOfCharlieAfter)
@@ -200,20 +201,24 @@ Then(
   }
 );
 
-Then(/^Alice's balance should be restored$/, { timeout: 20000 }, async () => {
-  const balanceOfAliceAfter = await getBalanceOf(alice);
-  expect(
-    new BigNumber(balanceOfAliceAfter)
-      .minus(new BigNumber(this.aliceInitialBalance))
-      .integerValue()
-      .toNumber()
-  ).to.be.lessThan(5);
-});
+Then(
+  /^Alice's balance should be restored$/,
+  { timeout: 20000 },
+  async function() {
+    const balanceOfAliceAfter = await getBalanceOf(alice);
+    expect(
+      new BigNumber(balanceOfAliceAfter)
+        .minus(new BigNumber(this.aliceInitialBalance))
+        .integerValue()
+        .toNumber()
+    ).to.be.lessThan(5);
+  }
+);
 
 Then(
   /^Charlie should not have received any payment$/,
   { timeout: 20000 },
-  async () => {
+  async function() {
     const balanceOfCharlieAfter = await getBalanceOf(charlie);
     expect(
       new BigNumber(this.charlieInitialBalance)
@@ -227,7 +232,7 @@ Then(
 Then(
   /^The payment should be rejected with a "(.*)" message$/,
   { timeout: 20000 },
-  errorCode => {
+  async function(errorCode) {
     expect(this.lastTxError).to.equal(errorCode);
   }
 );
