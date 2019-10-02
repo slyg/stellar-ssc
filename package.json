@@ -4,17 +4,14 @@
   "description": "Alice (customer) Charlie (contractor) Maria (mediator)",
   "main": "index.js",
   "scripts": {
-    "test": "jest --testTimeout=90000",
+    "test": "npm run test:e2e",
     "test:e2e": "cucumber-js specs/**/*.feature -f node_modules/cucumber-pretty"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "chai": "^4.2.0",
     "cucumber": "^5.1.0",
-    "cucumber-pretty": "^1.5.2",
-    "jest": "^24.9.0",
-    "jest-cucumber": "^2.0.11"
+    "cucumber-pretty": "^1.5.2"
   },
   "dependencies": {
     "bignumber.js": "^9.0.0",
